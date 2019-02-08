@@ -7,6 +7,11 @@ export enum DataCentre {
   AU_1 = 4000
 }
 
+export enum SortDirection {
+  Ascending = 1,
+  Descending = 2
+}
+
 export class Messages {
   static CollectionExists = "A collection with same name exists for the App";
   static InvalidCollectionData = "The collection data is invalid";
@@ -42,6 +47,23 @@ export class AppToken {
   static appWriteToken = "App Write Token";
 }
 
+declare type Collection = {
+  title: string,
+  indexFields?: string[],
+  searchFields?: string[],
+  sortDirection?: SortDirection,//=	SortDirection.Descending
+  stopWordEnabled?: boolean, //true
+  stemmingEnabled?: boolean, //true
+  pluralsEnabled?: boolean, //false
+  minCharsTypoTolerance?: number, //  4
+  textFacetFields?: string[],
+  numericFacetFields?: string[],//  empty
+  maxFacetCount?: number,//  100
+  pageSize?: number, // 50
+  maxFetchCount?: number, //1000
+  whitelistedFields?: string[], //empty
+}
+
 export class SearchTapAPIClient {
   protected userId: String;
   protected restClient;
@@ -49,7 +71,7 @@ export class SearchTapAPIClient {
   constructor(token: String) {
     this.userId = token;
     this.restClient = Axios.create({
-      baseURL: "https://manage.searchtap.net/v2",
+      baseURL: "http://beta-api.searchtap.net/v2",
       headers: {
         "Authorization": "Bearer " + token
       }
@@ -62,6 +84,11 @@ export class SearchTapAPIClient {
     return response;
   }
 
+  async deleteApp(appId: string) {
+    let response = await this.restClient.delete(`/apps/${appId}`).catch(e => e.response);
+    return response;
+  }
+
   async getApps(skip: number, count: number) {
     return this.restClient.get("/apps", {
       params: {
@@ -71,11 +98,11 @@ export class SearchTapAPIClient {
     }).catch(e => e.response);
   }
 
-  async getCollections(appWriteToken: string, appId: String, skip: number, count: number) {
+  async getCollections(appId: String, skip: number, count: number) {
     return this.restClient.get("/collections", {
-      headers: {
-        "Authorization": "Bearer " + appWriteToken
-      },
+      // headers: {
+      //   "Authorization": "Bearer " + appWriteToken
+      // },
       params: {
         appId: appId,
         skip: skip,
@@ -107,28 +134,42 @@ export class SearchTapAPIClient {
     }
   }
 
-  async getCollectionByTitle(appWriteToken: string, appId: String, collectionTitle: string) {
+  async getCollectionByTitle(appId: String, collectionTitle: string) {
     let skip = 0;
     let pageSize = 50;
-    let response = await this.getCollections(appWriteToken, appId, skip, pageSize);
+    let response = await this.getCollections(appId, skip, pageSize);
     while (response.data.count >= skip * pageSize) {
       let responseData = response.data.data;
       let collection = responseData.find(x => x.title === collectionTitle);
       if (collection)
         return collection;
-      response = await this.getCollections(appWriteToken, appId, ++skip, pageSize)
+      response = await this.getCollections(appId, ++skip, pageSize)
     }
+    return null;
   }
 
-  async createCollection(appWriteToken: string, appId: String, collectionTitle: string) {
-    let data = {
-      title: collectionTitle,
-      appId: appId
-    };
+  async getCollection(collectionId: string) {
+    let response = await this.restClient.get(`/collections/${collectionId}`, {
+      // headers: {
+      //   "Authorization": "Bearer " + appWriteToken
+      // }
+    }).catch(e => e.response);
+    if (response.status === 200)
+      return response.data;
+
+    return null;
+  }
+
+  async createCollection(appId: String, collectionData: string | Collection) {
+    let data = (<Collection>collectionData).title == undefined ?
+      {
+        title: collectionData,
+        appId: appId
+      } : collectionData;
     let response = await this.restClient.post("/collections", data, {
-      headers: {
-        "Authorization": "Bearer " + appWriteToken
-      },
+      // headers: {
+      //   "Authorization": "Bearer " + "PNWDFXFHMWK4EAWMS8NUE45L"
+      // },
       params: {
         appId: appId
       }
@@ -136,15 +177,33 @@ export class SearchTapAPIClient {
     return response;
   }
 
+  async updateCollection(collectionId: string, collectionData: Collection) {
+    let response = await this.restClient.put(`/collections/${collectionId}`, collectionData, {
+      // headers: {
+      //   "Authorization": "Bearer " + "CN3FDVSEIA1D2MX812BDLQVC"
+      // }
+    }).catch(e => e.response);
+    return response;
+  }
+
+  async deleteCollection(collectionId: string) {
+    let response = await this.restClient.delete(`/collections/${collectionId}`, {
+      // headers: {
+      //   "Authorization": "Bearer " + "CN3FDVSEIA1D2MX812BDLQVC"
+      // }
+    }).catch(e => e.response);
+    return response;
+  }
+
   async createOrElseGetCollection(appWriteToken: string, appId: string, collectionTitle: string) {
     let collection: any;
-    let collectionResponse = await this.createCollection(appWriteToken, appId, collectionTitle);
+    let collectionResponse = await this.createCollection(appId, collectionTitle);
 
     if (collectionResponse.status === StatusCode.Ok) {
       collection = collectionResponse.data;
     }
     else if (collectionResponse.status === StatusCode.BadRequest && collectionResponse.data.message === Messages.CollectionExists) {
-      collection = await this.getCollectionByTitle(appWriteToken, appId, collectionTitle)
+      collection = await this.getCollectionByTitle(appId, collectionTitle)
     }
     return collection;
   }
@@ -175,6 +234,34 @@ export class SearchTapAPIClient {
     }
     return tokens;
 
+  }
+
+  async getWriteToken(appId: string): Promise<any> {
+    let tokens = await this.getAllToken(appId);
+    let appWriteToken = tokens ? tokens.find(x => x.title === AppToken.appWriteToken) : undefined;
+    return appWriteToken;
+  }
+
+  async addRecords(collectionId: string, records: { id: string, [props: string]: any }[]) {
+    if (records.some(x => !x.id)) {
+
+    }
+    let response = this.restClient.post(`/collections/${collectionId}/records`, records).catch(e => e.response);
+    return response;
+  }
+
+  async reindexRecords(collectionId: string) {
+    let response = this.restClient.post(`/collections/${collectionId}/reindex`).catch(e => e.response);
+    return response;
+  }
+
+  async deleteRecords(collectionId: string, ids: string[]) {
+    let response = this.restClient.delete(`/collections/${collectionId}/records?isClear=false`, ids).catch(e => e.response);
+    return response;
+  }
+  async clearRecords(collectionId: string) {
+    let response = this.restClient.delete(`/collections/${collectionId}/records?isClear=true`).catch(e => e.response);
+    return response;
   }
 
 }
