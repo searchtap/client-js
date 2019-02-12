@@ -1,51 +1,15 @@
-import Axios from "axios";
+const Axios = require("axios").default;
+import {AppToken} from "./AppToken";
 
-export enum DataCentre {
-  IN_1 = 1000,
-  US_1 = 2000,
-  US_2 = 2100,
-  AU_1 = 4000
-}
+export {AppToken} from "./AppToken";
 
-export enum SortDirection {
-  Ascending = 1,
-  Descending = 2
-}
+import {DataCentre, SortDirection} from "./enums";
 
-export class Messages {
-  static CollectionExists = "A collection with same name exists for the App";
-  static InvalidCollectionData = "The collection data is invalid";
-  static InvalidAppData = "The app data is invalid";
-  static EntityNotFound = "The Entity for given Id was not found";
-  static EmptyCollectionData = "The collection data was empty.";
-  static DataLimitExceeded = "Collection data limit exceeded.";
-  static EmptyArray = "Body of the array is empty";
-  static InvalidSynonymData = "The synonym data was invalid";
-  static BadRequest = "Bad request";
-  static InvalidCollection = "Invalid Collection";
-  static DuplicateUser = "This email is already registered, try signing in.";
-  static UserCredentialsFailure = "Username and Password do not match";
-  static SchedulerAlreadyInit = "Job Scheduler is already init, ignoring init";
-  static ApiUnauthorised = "Not Allowed to access this resource";
-  static PasswordError = "Old password cannot be same as new password";
-  static DuplicateAppName = "App with same name already exists";
-}
+export {DataCentre, SortDirection} from "./enums";
 
-export class StatusCode {
-  static Ok = 200;
-  static BadRequest = 400;
-  static InternalServerError = 500;
-  static NotFound = 404;
-  static Created = 201;
-  static Unauthorised = 401;
-  static Conflict = 409;
-}
+import {Messages, StatusCode} from "./utils/Constants";
 
-
-export class AppToken {
-  static appReadToken = "App Read Token";
-  static appWriteToken = "App Write Token";
-}
+export {Messages, StatusCode} from "./utils/Constants";
 
 declare type Collection = {
   title: string,
@@ -64,7 +28,7 @@ declare type Collection = {
   whitelistedFields?: string[], //empty
 }
 
-export class SearchTapAPIClient {
+export class Index {
   protected userId: String;
   protected restClient;
 
@@ -78,15 +42,27 @@ export class SearchTapAPIClient {
     });
   }
 
+  validateResponse(response): any {
+    switch (response.status) {
+      case StatusCode.Unauthorised:
+        throw new Error(Messages.NotAuthorisedException);
+      case StatusCode.NotFound:
+        throw new Error(Messages.EntityNotFoundException);
+      default:
+        return response;
+    }
+
+  }
+
   async createApp(appTitle: string, locations: DataCentre[]) {
     let data = {title: appTitle, locations: locations};
     let response = await this.restClient.post("/apps", data).catch(e => e.response);
-    return response;
+    return this.validateResponse(response);
   }
 
   async deleteApp(appId: string) {
     let response = await this.restClient.delete(`/apps/${appId}`).catch(e => e.response);
-    return response;
+    return this.validateResponse(response);
   }
 
   async getApps(skip: number, count: number) {
@@ -99,26 +75,25 @@ export class SearchTapAPIClient {
   }
 
   async getCollections(appId: String, skip: number, count: number) {
-    return this.restClient.get("/collections", {
-      // headers: {
-      //   "Authorization": "Bearer " + appWriteToken
-      // },
+    let response = this.restClient.get("/collections", {
       params: {
         appId: appId,
         skip: skip,
         count: count
       }
     }).catch(e => e.response);
+    return this.validateResponse(response);
   }
 
   async getTokens(appId: String, skip: number, count: number) {
-    return this.restClient.get("/tokens", {
+    let response = this.restClient.get("/tokens", {
       params: {
         appId: appId,
         skip: skip,
         count: count
       }
     }).catch(e => e.response);
+    return this.validateResponse(response);
   }
 
   async getAppByTitle(appTitle: String) {
@@ -132,6 +107,7 @@ export class SearchTapAPIClient {
         return app;
       response = await this.getApps(++skip, pageSize)
     }
+    return this.validateResponse(response);
   }
 
   async getCollectionByTitle(appId: String, collectionTitle: string) {
@@ -148,12 +124,12 @@ export class SearchTapAPIClient {
     return null;
   }
 
+  //todo:what have to be dome if no collection exist
   async getCollection(collectionId: string) {
-    let response = await this.restClient.get(`/collections/${collectionId}`, {
-      // headers: {
-      //   "Authorization": "Bearer " + appWriteToken
-      // }
-    }).catch(e => e.response);
+    let response = await this.restClient.get(`/collections/${collectionId}`).catch(e => e.response);
+
+    this.validateResponse(response);
+
     if (response.status === 200)
       return response.data;
 
@@ -167,38 +143,27 @@ export class SearchTapAPIClient {
         appId: appId
       } : collectionData;
     let response = await this.restClient.post("/collections", data, {
-      // headers: {
-      //   "Authorization": "Bearer " + "PNWDFXFHMWK4EAWMS8NUE45L"
-      // },
       params: {
         appId: appId
       }
     }).catch(e => e.response);
-    return response;
+    return this.validateResponse(response);
   }
 
   async updateCollection(collectionId: string, collectionData: Collection) {
-    let response = await this.restClient.put(`/collections/${collectionId}`, collectionData, {
-      // headers: {
-      //   "Authorization": "Bearer " + "CN3FDVSEIA1D2MX812BDLQVC"
-      // }
-    }).catch(e => e.response);
-    return response;
+    let response = await this.restClient.put(`/collections/${collectionId}`, collectionData,).catch(e => e.response);
+    return this.validateResponse(response);
   }
 
   async deleteCollection(collectionId: string) {
-    let response = await this.restClient.delete(`/collections/${collectionId}`, {
-      // headers: {
-      //   "Authorization": "Bearer " + "CN3FDVSEIA1D2MX812BDLQVC"
-      // }
-    }).catch(e => e.response);
-    return response;
+    let response = await this.restClient.delete(`/collections/${collectionId}`).catch(e => e.response);
+    return this.validateResponse(response);
   }
 
   async createOrElseGetCollection(appWriteToken: string, appId: string, collectionTitle: string) {
     let collection: any;
     let collectionResponse = await this.createCollection(appId, collectionTitle);
-
+    this.validateResponse(collectionResponse);
     if (collectionResponse.status === StatusCode.Ok) {
       collection = collectionResponse.data;
     }
@@ -211,7 +176,7 @@ export class SearchTapAPIClient {
   async createOrElseGetApp(appTitle: string, locations: DataCentre[]) {
     let app: any;
     let appResponse = await this.createApp(appTitle, locations);
-
+    this.validateResponse(appResponse);
     if (appResponse.status === StatusCode.Ok) {
       app = appResponse.data;
     }
@@ -226,6 +191,7 @@ export class SearchTapAPIClient {
     let skip = 0;
     let pageSize = 50;
     let response = await this.getTokens(appId, skip, pageSize);
+    this.validateResponse(response);
     let tokens: any[] = [];
     while (response.data.count >= skip * pageSize) {
       let responseData = response.data.data;
@@ -247,21 +213,22 @@ export class SearchTapAPIClient {
 
     }
     let response = this.restClient.post(`/collections/${collectionId}/records`, records).catch(e => e.response);
-    return response;
+    return this.validateResponse(response);
   }
 
   async reindexRecords(collectionId: string) {
     let response = this.restClient.post(`/collections/${collectionId}/reindex`).catch(e => e.response);
-    return response;
+    return this.validateResponse(response);
   }
 
   async deleteRecords(collectionId: string, ids: string[]) {
     let response = this.restClient.delete(`/collections/${collectionId}/records?isClear=false`, ids).catch(e => e.response);
-    return response;
+    return this.validateResponse(response);
   }
+
   async clearRecords(collectionId: string) {
     let response = this.restClient.delete(`/collections/${collectionId}/records?isClear=true`).catch(e => e.response);
-    return response;
+    return this.validateResponse(response);
   }
 
 }

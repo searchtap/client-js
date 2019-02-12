@@ -1,16 +1,17 @@
 import {suite, test, timeout} from "mocha-typescript";
-import {DataCentre, SearchTapAPIClient, SortDirection} from "../src/main/SearchTapAPIClient";
+import {DataCentre, Index, SortDirection} from "../src/index";
 import {expect} from "chai";
+
 
 @suite("SearchClientSpec", timeout(100000))
 export class SearchTapApiClientSpec {
-  searchtapApiClient: SearchTapAPIClient;
+  searchtapApiClient: Index;
   private appTitle = "testApp";
 
   private collectionTitle = "testCollection";
 
   async before() {
-    this.searchtapApiClient = new SearchTapAPIClient("PNWDFXFHMWK4EAWMS8NUE45L")
+    this.searchtapApiClient = new Index("PNWDFXFHMWK4EAWMS8NUE45L")
   }
 
   private async deleteAppIfExist() {

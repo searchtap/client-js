@@ -7,11 +7,17 @@
       "dom"
     ],
     "declaration": true,
-    "outDir": "./lib",
-    "sourceMap": true,
+    "outDir": "./lib/types",
+    "sourceMap": false,
     "esModuleInterop": true,
     "noImplicitAny": false,
     "experimentalDecorators": true,
-    "types": []
-  }
+    "types": ["node"]
+  },
+  "include": [
+    "./src/**/*"
+  ],
+  "exclude": ["node_modules",
+    "./tests/**/*.ts"
+  ]
 }
