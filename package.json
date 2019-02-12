@@ -1,0 +1,47 @@
+{
+  "name": "@searchtap/client",
+  "version": "0.0.1",
+  "description": "",
+  "main": "./src/main/index.js",
+  "@pika/pack": {
+    "pipeline": [
+      [
+        "./node_modules/@pika/plugin-ts-standard-pkg/dist-node/index.js",
+        {
+          "exclude": [
+            "__tests__/*"
+          ]
+        }
+      ],
+      [
+        "./node_modules/@pika/plugin-build-node/dist-node/index.js"
+      ],
+      [
+        "./node_modules/@pika/plugin-build-web/dist-node/index.js"
+      ]
+    ]
+  },
+  "scripts": {
+    "build": "pack build",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "buildAndPublish": "npm run build && npm publish --access public"
+  },
+  "types": "./lib/index.d.ts",
+  "dependencies": {
+    "axios": "^0.18.0"
+  },
+  "devDependencies": {
+    "@pika/pack": "^0.3.1",
+    "@pika/plugin-build-node": "^0.3.4",
+    "@pika/plugin-build-types": "^0.3.4",
+    "@pika/plugin-build-web": "^0.3.4",
+    "@pika/plugin-ts-standard-pkg": "^0.3.4",
+    "chai": "^4.1.2",
+    "mocha": "^5.1.0",
+    "mocha-typescript": "^1.1.12",
+    "ts-node": "^7.0.0",
+    "typescript": "^2.9.2"
+  },
+  "author": "",
+  "license": "ISC"
+}
