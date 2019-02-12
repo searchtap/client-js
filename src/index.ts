@@ -210,7 +210,7 @@ export class Index {
 
   async addRecords(collectionId: string, records: { id: string, [props: string]: any }[]) {
     if (records.some(x => !x.id)) {
-
+      throw new Error(Messages.InvalidSchemaException)
     }
     let response = this.restClient.post(`/collections/${collectionId}/records`, records).catch(e => e.response);
     return this.validateResponse(response);
